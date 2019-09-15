@@ -16,24 +16,10 @@
     <string name="points_view_display_information">%1$s\n%2$d米</string>
 
     <!-- GPS -->
-    <string name="gps_disabled">GPS disabled</string>
+    <string name="gps_disabled">GPS禁止</string>
     <string name="gps_disabled_alert_message">Your device GPS is currently disabled. Please enable it.</string>
-    <string name="gps_waiting_for_location">Waiting for\nGPS location…</string>
-    <string name="gps_updated_seconds_ago">GPS updated\n%1$ds ago</string>
-    <string name="gps_your_location">Your location</string>
-
-    <!-- Orientation -->
-    <string name="orientation_pitch_degrees">Pitch\n%1$.0f °</string>
-    <string name="orientation_roll_degrees">Roll\n%1$.0f °</string>
-
-    <!-- GPX -->
-    <string name="gpx_pick_a_file">Pick a GPX file</string>
-    <string name="gpx_parsed_alert_title">GPX parsed</string>
-    <string name="gpx_parsed_no_points_alert_message">No points were found.</string>
-    <string name="gpx_parsed_alert_message">%1$d points were found. Import them ?</string>
-    <string name="gpx_points_imported_alert_message">%1$d points were imported.</string>
-    <string name="gpx_invalid_file_alert_message">Invalid GPX file.</string>
-    <string name="gpx_parsing">Parsing…</string>
-    <string name="gpx_importing">Importing…</string>
+    <string name="gps_waiting_for_location">正在获取GPS</string>
+    <string name="gps_updated_seconds_ago">GPS数据\n%1$d秒钟以前</string>
+    <string name="gps_your_location">当前所在点</string>
 
 </resources>

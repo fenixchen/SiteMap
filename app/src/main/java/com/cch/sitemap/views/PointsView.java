@@ -35,6 +35,9 @@ public class PointsView extends View {
     private static final int ICON_HEIGHT = 152 / 2;
 
     private static final int TEXT_HEIGHT = 40;
+    private static final int TEXT_WIDTH = 250;
+    private static final int TEXT_X_START = 80;
+    private static final int TEXT_Y_START = 20;
     // Drawing
     private final TextPaint mTextPaint;
     // Points
@@ -151,28 +154,28 @@ public class PointsView extends View {
                 }
                 // Draw arrow
                 final Drawable drawable = getResources().getDrawable(R.drawable.green_mid, null);
-                drawable.setBounds(xy[0] - ICON_WIDTH / 2,
-                        xy[1] - ICON_HEIGHT / 2,
-                        xy[0] + ICON_WIDTH / 2,
-                        xy[1] + ICON_HEIGHT / 2);
+//                drawable.setBounds(xy[0] - ICON_WIDTH / 2,
+//                        xy[1] - ICON_HEIGHT / 2,
+//                        xy[0] + ICON_WIDTH / 2,
+//                        xy[1] + ICON_HEIGHT / 2);
+                drawable.setBounds(xy[0], xy[1], xy[0] + ICON_WIDTH, xy[1] + ICON_HEIGHT);
                 drawable.draw(canvas);
+
                 // Draw text
-//                Log.i(TAG, String.format("Distance between %.7f,%.7f to %.7f,%.7f",
-//                        mUserPoint.getLongitude(), mUserPoint.getLatitude(),
-//                        point.getLongitude(), point.getLatitude()));
                 final String pointText = String.format(mPointText,
                         entry.getValue().getName(),
                         mUserPoint.distanceTo(entry.getValue()));
                 final StaticLayout mTextLayout = new StaticLayout(pointText,
                         mTextPaint,
-                        100,
+                        TEXT_WIDTH,
                         Layout.Alignment.ALIGN_NORMAL,
                         1.0f,
                         0.0f,
                         false);
                 canvas.save();
-                canvas.translate(xy[0] + ICON_WIDTH / 2 + 15, xy[1] - ICON_HEIGHT / 3);
+                canvas.translate(xy[0] + ICON_WIDTH + TEXT_X_START, xy[1] + TEXT_Y_START);
                 mTextLayout.draw(canvas);
+                canvas.translate(xy[0], xy[1]);
                 canvas.restore();
             }
         }
@@ -261,7 +264,7 @@ public class PointsView extends View {
         }
     }
 
-    public void touch(float x, float y) {
+    public Point getTouchPoint(float x, float y) {
         if (mUserPoint != null && mPoints != null && !mPoints.isEmpty()) {
             for (SortedMap.Entry<Float, Point> entry : mPoints.entrySet()) {
                 float azimuth = entry.getKey();
@@ -270,19 +273,16 @@ public class PointsView extends View {
                 if (xy == null) {
                     continue;
                 }
-                float adjWidth = ICON_WIDTH / 2;
-                float adjHeight = ICON_HEIGHT / 2;
-
-                float x1 = xy[0] - adjWidth;
-                float x2 = xy[0] + adjWidth + 100;
-                float y1 = xy[1] - adjHeight;
-                float y2 = xy[1] + adjHeight;
+                float x1 = xy[0];
+                float x2 = xy[0] + ICON_WIDTH + TEXT_WIDTH + TEXT_X_START;
+                float y1 = xy[1];
+                float y2 = xy[1] + ICON_HEIGHT + TEXT_Y_START;
 
                 if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
-                    Log.w(TAG, "Touch " + point.getName());
-                    break;
+                    return point;
                 }
             }
         }
+        return null;
     }
 }

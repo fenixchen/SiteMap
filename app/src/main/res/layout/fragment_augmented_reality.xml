@@ -29,10 +29,19 @@
         android:id="@+id/gps_status_text_view"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:layout_centerHorizontal="true"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentTop="true"
         android:textAlignment="center" />
 
+    <TextView
+        android:id="@+id/nearby_points"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_marginLeft="10dp"
+        android:layout_toRightOf="@id/bmapView"
+        android:textAlignment="viewStart"
+        android:textColor="#FF00FFFF" />
     <com.baidu.mapapi.map.MapView
         android:id="@+id/bmapView"
         android:layout_width="200dp"
@@ -40,5 +49,25 @@
         android:layout_alignParentStart="true"
         android:layout_alignParentBottom="true" />
 
+    <LinearLayout
+        android:id="@+id/sceneLayout"
+        android:layout_width="300dp"
+        android:layout_height="match_parent"
+        android:layout_alignParentEnd="true"
+        android:orientation="vertical">
 
+        <TextView
+            android:id="@+id/selectedPoint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginRight="20dp"
+            android:text=""
+            android:textAlignment="textEnd"
+            android:textColor="#FF00FF00" />
+
+        <WebView
+            android:id="@+id/webView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </LinearLayout>
 </RelativeLayout>

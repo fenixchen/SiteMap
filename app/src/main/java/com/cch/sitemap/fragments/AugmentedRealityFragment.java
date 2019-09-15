@@ -11,12 +11,17 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Message;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -24,24 +29,39 @@ import androidx.fragment.app.FragmentTransaction;
 
 import com.baidu.mapapi.map.BitmapDescriptor;
 import com.baidu.mapapi.map.BitmapDescriptorFactory;
+import com.baidu.mapapi.map.MapStatus;
 import com.baidu.mapapi.map.MapStatusUpdate;
 import com.baidu.mapapi.map.MapStatusUpdateFactory;
 import com.baidu.mapapi.map.MapView;
+import com.baidu.mapapi.map.MarkerOptions;
 import com.baidu.mapapi.map.MyLocationConfiguration;
 import com.baidu.mapapi.map.MyLocationData;
+import com.baidu.mapapi.map.OverlayOptions;
 import com.baidu.mapapi.map.UiSettings;
 import com.baidu.mapapi.model.LatLng;
 import com.cch.sitemap.BuildConfig;
 import com.cch.sitemap.R;
-import com.cch.sitemap.Utils;
 import com.cch.sitemap.objects.Point;
 import com.cch.sitemap.services.Compass;
 import com.cch.sitemap.services.PointService;
+import com.cch.sitemap.utils.Utils;
 import com.cch.sitemap.views.CompassView;
 import com.cch.sitemap.views.PointsView;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+
 
 /**
  * Fragment showing the points around the user location using augmented reality over a camera preview.<br>
@@ -51,6 +71,10 @@ import java.util.List;
 public class AugmentedRealityFragment extends CameraPreviewFragment
         implements LocationListener, Compass.CompassListener {
 
+    public static final int LEFT_TO_RIGHT = 0;
+    public static final int RIGHT_TO_LEFT = 1;
+    public static final int TOP_TO_BOTTOM = 2;
+    public static final int BOTTOM_TO_TOP = 3;
     // Tag
     private static final String TAG = AugmentedRealityFragment.class.getSimpleName();
     private static final String TAG_ALERT_DIALOG_ENABLE_GPS = AlertDialogFragment.TAG + "_ENABLE_GPS";
@@ -72,6 +96,7 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
     private static final float MIN_AZIMUTH_DIFFERENCE_BETWEEN_COMPASS_UPDATES = 1;
     private static final float MIN_VERTICAL_INCLINATION_DIFFERENCE_BETWEEN_COMPASS_UPDATES = 1;
     private static final float MIN_HORIZONTAL_INCLINATION_DIFFERENCE_BETWEEN_COMPASS_UPDATES = 1;
+    private static final int POINTS_IN_RANGE = 500;
     // Check for regular GPS updates
     // Init
     private final Handler mCheckGpsHandler = new Handler();
@@ -91,7 +116,7 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
     // Points
     private Point mUserLocationPoint;
     private Location mUserLocationAtLastDbReading;
-    private List<Point> mPoints = new ArrayList<Point>();
+    private List<Point> mPoints = new ArrayList<>();
     // Views
     private PointsView mPointsView;
     private CompassView mCompassView;
@@ -109,13 +134,24 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
     private boolean isFirstLoc = true;
     private BitmapDescriptor bitmapDescriptor;
     private float mAccuracy;
+    private WebView mWebView;
+    private TextView mSelectedPoint;
+    private LinearLayout mSceneLayout;
+    private TextView mNearbyPoints;
+    private Handler handler = new Handler() {  //此函数是属于MainActivity.java所在线程的函数方法，所以可以直接条调用MainActivity的 所有方法。
+        @Override
+        public void handleMessage(Message msg) {
+            if (msg.what == 0x01) {   //
+                String mapUrl = String.format("http://43.254.45.8:18080/viewer-shanghai/index.html?id=%s", (String) msg.obj);
+                Log.i(TAG, "访问地址:" + mapUrl);
+                mWebView.loadUrl(mapUrl);
+            }
+        }
+    };
 
-    @Override
-    public void onDestroyView() {
-        mMapView.onDestroy();
-        super.onDestroyView();
+    public void gesture(int type) {
+
     }
-
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -134,9 +170,78 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
         bitmapDescriptor = BitmapDescriptorFactory.fromBitmap(bmp);
     }
 
-    public void onTouchEvent(float x, float y) {
-        mPointsView.touch(x, y);
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        mMapView.onDestroy();
     }
+
+    public void onTouchEvent(float x, float y) {
+        Point p = mPointsView.getTouchPoint(x, y);
+        if (p == null) {
+            mSceneLayout.setVisibility(View.GONE);
+        } else {
+            mSelectedPoint.setText(p.getName());
+            SendGetRequest(p.getLongitude(), p.getLatitude());
+            mSceneLayout.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private String getSceneId(String json) {
+        String id = "";
+        try {
+            JSONArray jsonArray = new JSONArray(json);
+            if (jsonArray.length() > 0) {
+                id = jsonArray.getJSONObject(0).optString("id");
+            }
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return id;
+    }
+
+    public void SendGetRequest(double lon, double lat) {
+        final String url = String.format("http://43.254.45.8:18080/jietu-pano-svr-shanghai/api/nearby/%.7f/%.7f/100000", lon, lat);
+        final double curLon = lon, curLat = lat;
+        new Thread() {
+            @Override
+            public void run() {
+                String pathString = url;
+                HttpURLConnection connection;
+                try {
+                    URL url = new URL(pathString);
+                    Log.i(TAG, "请求地址:" + pathString);
+                    connection = (HttpURLConnection) url.openConnection();
+                    connection.setRequestMethod("GET");
+                    connection.connect();
+                    //接受数据
+                    if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
+                        InputStream inputStream = connection.getInputStream();
+                        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
+                        String line;
+                        StringBuilder lines = new StringBuilder();
+                        while ((line = bufferedReader.readLine()) != null) { //不为空进行操作
+                            lines.append(line);
+                        }
+                        Log.w(TAG, "接受到的数据：" + lines);
+                        if (lines.length() > 0) {
+                            Message msg = Message.obtain();
+                            msg.what = 0x01;
+                            msg.obj = getSceneId(lines.toString());
+                            handler.sendMessage(msg);
+                        } else {
+                            Toast.makeText(getContext(), String.format("找不到(%.7f, %.7f)对应街景", curLon, curLat), Toast.LENGTH_LONG).show();
+                        }
+                    }
+                } catch (MalformedURLException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }.start();
+    }
+
 
     @Nullable
     @Override
@@ -151,7 +256,21 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
         // Views
         mPointsView = view.findViewById(R.id.points_view);
         mCompassView = view.findViewById(R.id.compass_view);
+        mCompassView.setVisibility(View.INVISIBLE);
         mGpsStatusTextView = view.findViewById(R.id.gps_status_text_view);
+        mWebView = view.findViewById(R.id.webView);
+        mWebView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                view.loadUrl(url);
+                return true;
+            }
+        });
+        mWebView.getSettings().setJavaScriptEnabled(true);//设置webView属性，运行JS脚本
+        mNearbyPoints = view.findViewById(R.id.nearby_points);
+        mSelectedPoint = view.findViewById(R.id.selectedPoint);
+        mSceneLayout = view.findViewById(R.id.sceneLayout);
+        mSceneLayout.setVisibility(View.GONE);
         mMapView = view.findViewById(R.id.bmapView);
         mMapView.getMap().setMyLocationEnabled(true);
         UiSettings uiSettings = mMapView.getMap().getUiSettings();
@@ -160,6 +279,9 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
         mMapView.getMap().setCompassPosition(new android.graphics.Point(50, 50));
         MyLocationConfiguration configuration = new MyLocationConfiguration(MyLocationConfiguration.LocationMode.NORMAL, true, bitmapDescriptor);
         mMapView.getMap().setMyLocationConfigeration(configuration);
+        MapStatus.Builder builder = new MapStatus.Builder();
+        builder.zoom(15.0f);
+        mMapView.getMap().setMapStatus(MapStatusUpdateFactory.newMapStatus(builder.build()));
 
         //mVerticalInclinationTextView = view.findViewById(R.id.pitch_text_view);
         //mHorizontalInclinationTextView = view.findViewById(R.id.roll_text_view);
@@ -175,6 +297,7 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
             mLocationManager = (LocationManager) getActivity().getSystemService(Activity.LOCATION_SERVICE);
             try {
                 mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, MIN_TIME_INTERVAL_BETWEEN_LOCATION_UPDATES, 5, this);
+                mLocationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, MIN_TIME_INTERVAL_BETWEEN_LOCATION_UPDATES, 5, this);
             } catch (SecurityException e) {
                 if (BuildConfig.DEBUG) Log.d(TAG, "Missing location permission");
                 e.printStackTrace();
@@ -182,11 +305,16 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
             try {
                 Location gps = mLocationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
                 Location network = mLocationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-                if (gps != null) {
-                    Log.w(TAG, "Init with last known GPS PROVIDER");
+                Location sim = PointService.getInstance().readSimGPS();
+                if (sim != null) {
+                    Log.w(TAG, "Init with SIM GPS " + sim.getLongitude() + "," + sim.getLatitude());
+                    onLocationChanged(sim);
+                } else if (gps != null) {
+                    Log.w(TAG, "Init with last known GPS PROVIDER " + gps.getLongitude() + "," + gps.getLatitude());
+                    gps.setTime(System.currentTimeMillis());
                     onLocationChanged(gps);
                 } else if (network != null) {
-                    Log.w(TAG, "Init with last known NETWORK PROVIDER");
+                    Log.w(TAG, "Init with last known NETWORK PROVIDER " + gps.getLongitude() + "," + gps.getLatitude());
                     network.setTime(System.currentTimeMillis());
                     onLocationChanged(network);
                 } else {
@@ -208,23 +336,20 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
         mMapView.onResume();
     }
 
-
     @Override
     public void onPause() {
+        super.onPause();
         if (mHasPermissions) {
             // Stop GPS updated checks and listener
             mCheckGpsHandler.removeCallbacks(mCheckGpsRunnable);
             mLocationManager.removeUpdates(this);
         }
-
-        super.onPause();
-
         mMapView.onPause();
-
         if (mHasPermissions) {
             // Stop compass
             if (mCompass != null) mCompass.stop();
         }
+
     }
 
     // CameraPreviewFragment implementation
@@ -278,19 +403,30 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
             mLastGpsLocation = location;
             if (mUserLocationPoint == null || mUserLocationPoint.distanceTo(location) > MIN_DISTANCE_DIFFERENCE_BETWEEN_RECALCULATIONS) {
                 if (BuildConfig.DEBUG)
-                    Log.d(TAG, "Recalculating points azimuth from the new user location");
+                    Log.w(TAG, "New Location:" + location.getLongitude() + "," + location.getLatitude());
                 mUserLocationPoint = new Point(getString(R.string.gps_your_location), location);
                 mAccuracy = location.getAccuracy();
-                if (mPoints.size() == 0) {
-                    mPoints.add(new Point("测试点", "测试点描述",
-                            mUserLocationPoint.getLatitude() - 0.001,
-                            mUserLocationPoint.getLongitude(),
-                            mUserLocationPoint.getAltitude()));
-                }
+                mPoints = PointService.getInstance().getPointsInRange(location, POINTS_IN_RANGE);
                 // Update points view
                 mPointsView.setPoints(mUserLocationPoint, PointService.sortPointsByRelativeAzimuth(mUserLocationPoint, mPoints));
                 // Update map
                 updateMapView(location.getAccuracy(), location.getLatitude(), location.getLongitude());
+
+                mMapView.getMap().clear();
+                StringBuilder nearbyPoints = new StringBuilder();
+                BitmapDescriptor bitmap = BitmapDescriptorFactory.fromResource(R.drawable.icon_geo);
+                int count = 0;
+                for (Point p : mPoints) {
+                    LatLng llPoint = new LatLng(p.getLocation().getLatitude(), p.getLocation().getLongitude());
+                    if (BuildConfig.DEBUG)
+                        Log.w(TAG, "Add Overlay:" + p.getLocation().getLongitude() + "," + p.getLocation().getLatitude());
+                    OverlayOptions option = new MarkerOptions()
+                            .position(llPoint)
+                            .icon(bitmap);
+                    mMapView.getMap().addOverlay(option);
+                    nearbyPoints.append(String.format("%d. %s\n", ++count, p.getName()));
+                }
+                mNearbyPoints.setText(nearbyPoints.toString());
             }
         }
         updateGpsStatus();
@@ -352,9 +488,18 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
     private void updateGpsStatus() {
         if (isAdded()) {
             if (!mLocationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                //if (BuildConfig.DEBUG) Log.d(TAG, "GPS is disabled, use fake GPS position");
-                mLastGpsLocation = mLocationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-                mGpsStatusTextView.setText(String.format("Fake GPS:%.7f, %.7f", mLastGpsLocation.getLongitude(), mLastGpsLocation.getLatitude()));
+                Location sim = PointService.getInstance().readSimGPS();
+                if (sim != null) {
+                    mLastGpsLocation = sim;
+                    mGpsStatusTextView.setText(String.format("SIM GPS:%.7f, %.7f", mLastGpsLocation.getLongitude(), mLastGpsLocation.getLatitude()));
+                } else {
+                    mLastGpsLocation = mLocationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+                    if (mLastGpsLocation != null) {
+                        mGpsStatusTextView.setText(String.format("基站定位GPS:%.7f, %.7f", mLastGpsLocation.getLongitude(), mLastGpsLocation.getLatitude()));
+                    } else {
+                        mGpsStatusTextView.setText("没有基站定位信息");
+                    }
+                }
                 //mGpsStatusTextView.setText(getString(R.string.gps_disabled));
                 //mPointsView.setPoints(null, null);
                 //mLastGpsLocation.setTime(System.currentTimeMillis());
@@ -377,6 +522,7 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
 
     // Display an alert dialog asking the user to enable the GPS
     private void showEnableGpsAlertDialog() {
+        assert getFragmentManager() != null;
         if (isAdded() && getFragmentManager().findFragmentByTag(TAG_ALERT_DIALOG_ENABLE_GPS) == null) {
             final AlertDialogFragment alertDialogFragment = AlertDialogFragment.newInstance(R.string.gps, R.string.gps_disabled_alert_message, android.R.string.ok, android.R.string.cancel);
             alertDialogFragment.setTargetFragment(this, REQUEST_ENABLE_GPS);
@@ -388,7 +534,7 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
 
     // Dismiss the alert dialog asking the user to enable the GPS
     private void dismissEnableGpsAlertDialog() {
-        if (isAdded() && getFragmentManager().findFragmentByTag(TAG_ALERT_DIALOG_ENABLE_GPS) != null) {
+        if (getFragmentManager() != null && isAdded() && getFragmentManager().findFragmentByTag(TAG_ALERT_DIALOG_ENABLE_GPS) != null) {
             ((AlertDialogFragment) getFragmentManager().findFragmentByTag(TAG_ALERT_DIALOG_ENABLE_GPS)).dismissAllowingStateLoss();
         }
     }

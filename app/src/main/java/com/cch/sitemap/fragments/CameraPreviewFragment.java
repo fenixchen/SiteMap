@@ -261,7 +261,6 @@ public abstract class CameraPreviewFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-
         if (mHasPermissions) {
             startBackgroundThread();
 

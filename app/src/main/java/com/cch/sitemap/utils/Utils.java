@@ -1,4 +1,4 @@
-package com.cch.sitemap;
+package com.cch.sitemap.utils;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
