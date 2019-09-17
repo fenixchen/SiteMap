@@ -65,9 +65,23 @@
             android:textAlignment="textEnd"
             android:textColor="#FF00FF00" />
 
-        <WebView
-            android:id="@+id/webView"
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent" />
+            android:layout_height="match_parent">
+            <ProgressBar
+                android:id="@+id/webViewLoading"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:visibility="visible"
+                android:min="0"
+                android:layout_gravity="center"
+                android:alpha="0.5"
+                android:max="100"/>
+            <WebView
+                android:id="@+id/webView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:visibility="gone"/>
+        </FrameLayout>
     </LinearLayout>
 </RelativeLayout>

@@ -20,6 +20,7 @@ import android.view.ViewGroup;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -61,6 +62,8 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 
 
 /**
@@ -93,9 +96,9 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
     // The maximum age of a location update from the system to be considered as still valid (in order to avoid working with old positions), in milliseconds
     private static final long MAX_AGE_FOR_A_LOCATION = 3 * 60000;
     // The minimum difference with the last orientation values from Compass for the CompassListener to be notified, in degrees
-    private static final float MIN_AZIMUTH_DIFFERENCE_BETWEEN_COMPASS_UPDATES = 1;
-    private static final float MIN_VERTICAL_INCLINATION_DIFFERENCE_BETWEEN_COMPASS_UPDATES = 1;
-    private static final float MIN_HORIZONTAL_INCLINATION_DIFFERENCE_BETWEEN_COMPASS_UPDATES = 1;
+    private static final float MIN_AZIMUTH_DIFFERENCE_BETWEEN_COMPASS_UPDATES = 3;
+    private static final float MIN_VERTICAL_INCLINATION_DIFFERENCE_BETWEEN_COMPASS_UPDATES = 3;
+    private static final float MIN_HORIZONTAL_INCLINATION_DIFFERENCE_BETWEEN_COMPASS_UPDATES = 3;
     private static final int POINTS_IN_RANGE = 500;
     // Check for regular GPS updates
     // Init
@@ -135,6 +138,7 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
     private BitmapDescriptor bitmapDescriptor;
     private float mAccuracy;
     private WebView mWebView;
+    private ProgressBar mWebViewLoading;
     private TextView mSelectedPoint;
     private LinearLayout mSceneLayout;
     private TextView mNearbyPoints;
@@ -183,6 +187,8 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
         } else {
             mSelectedPoint.setText(p.getName());
             SendGetRequest(p.getLongitude(), p.getLatitude());
+            mWebView.setVisibility(View.GONE);
+            mWebViewLoading.setVisibility(View.VISIBLE);
             mSceneLayout.setVisibility(View.VISIBLE);
         }
     }
@@ -258,8 +264,22 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
         mCompassView = view.findViewById(R.id.compass_view);
         mCompassView.setVisibility(View.INVISIBLE);
         mGpsStatusTextView = view.findViewById(R.id.gps_status_text_view);
+        mWebViewLoading = view.findViewById(R.id.webViewLoading);
         mWebView = view.findViewById(R.id.webView);
         mWebView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                Handler handler = new Handler();
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        mWebView.setVisibility(View.VISIBLE);
+                        mWebViewLoading.setVisibility(View.GONE);
+                    }
+                }, 3000);
+            }
+
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
                 view.loadUrl(url);
@@ -294,18 +314,22 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
 
         if (mHasPermissions) {
             // GPS location listener
+            Location sim = PointService.getInstance().readSimGPS();
+
             mLocationManager = (LocationManager) getActivity().getSystemService(Activity.LOCATION_SERVICE);
-            try {
-                mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, MIN_TIME_INTERVAL_BETWEEN_LOCATION_UPDATES, 5, this);
-                mLocationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, MIN_TIME_INTERVAL_BETWEEN_LOCATION_UPDATES, 5, this);
-            } catch (SecurityException e) {
-                if (BuildConfig.DEBUG) Log.d(TAG, "Missing location permission");
-                e.printStackTrace();
+            if (sim == null) {
+                try {
+                    mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, MIN_TIME_INTERVAL_BETWEEN_LOCATION_UPDATES, 5, this);
+                    mLocationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, MIN_TIME_INTERVAL_BETWEEN_LOCATION_UPDATES, 5, this);
+                } catch (SecurityException e) {
+                    if (BuildConfig.DEBUG) Log.d(TAG, "Missing location permission");
+                    e.printStackTrace();
+                }
             }
             try {
                 Location gps = mLocationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
                 Location network = mLocationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-                Location sim = PointService.getInstance().readSimGPS();
+
                 if (sim != null) {
                     Log.w(TAG, "Init with SIM GPS " + sim.getLongitude() + "," + sim.getLatitude());
                     onLocationChanged(sim);
@@ -390,7 +414,7 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
             }
         }
 
-        LatLng ll = new LatLng(location.getLatitude(), location.getLongitude());
+        LatLng ll = Utils.convertGPS(location.getLatitude(), location.getLongitude());
         if (isFirstLoc) {
             isFirstLoc = false;
             MapStatusUpdate u = MapStatusUpdateFactory.newLatLng(ll);
@@ -417,7 +441,7 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
                 BitmapDescriptor bitmap = BitmapDescriptorFactory.fromResource(R.drawable.icon_geo);
                 int count = 0;
                 for (Point p : mPoints) {
-                    LatLng llPoint = new LatLng(p.getLocation().getLatitude(), p.getLocation().getLongitude());
+                    LatLng llPoint = Utils.convertGPS(p.getLocation().getLatitude(), p.getLocation().getLongitude());
                     if (BuildConfig.DEBUG)
                         Log.w(TAG, "Add Overlay:" + p.getLocation().getLongitude() + "," + p.getLocation().getLatitude());
                     OverlayOptions option = new MarkerOptions()
@@ -433,11 +457,12 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
     }
 
     private void updateMapView(float accuracy, double lat, double lon) {
+        LatLng cur = Utils.convertGPS(lat, lon);
         MyLocationData locData = new MyLocationData.Builder()
                 .accuracy(accuracy)
                 .direction(mCompassView.getAzimuth())
-                .latitude(lat)
-                .longitude(lon).build();
+                .latitude(cur.latitude)
+                .longitude(cur.longitude).build();
         mMapView.getMap().setMyLocationData(locData);
     }
 

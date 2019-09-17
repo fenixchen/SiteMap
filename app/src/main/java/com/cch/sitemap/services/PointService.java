@@ -178,31 +178,37 @@ public class PointService {
         return rangePoints;
     }
 
+    private Location locSim = null;
+    private boolean firstLoadSim = true;
     public Location readSimGPS() {
-        Location loc = null;
-        String extFilePath = Environment.getExternalStorageDirectory() + "/ARMap/";
-        String simPath = extFilePath + "SimGPS.txt";
-        FileInputStream fis;
-        try {
-            fis = new FileInputStream(simPath);
-            CSVReader reader = new CSVReader(new InputStreamReader(fis, StandardCharsets.UTF_8));
-            String[] next = reader.readNext();
-            if (next != null && next.length >= 2) {
-                double lon = Double.parseDouble(next[0]);
-                double lat = Double.parseDouble(next[1]);
-                int altitude = 0;
-                if (next.length > 2) {
-                    altitude = Integer.parseInt(next[2]);
+        if (firstLoadSim) {
+            firstLoadSim = false;
+            Location loc = null;
+            String extFilePath = Environment.getExternalStorageDirectory() + "/ARMap/";
+            String simPath = extFilePath + "SimGPS.txt";
+            FileInputStream fis;
+            try {
+                fis = new FileInputStream(simPath);
+                CSVReader reader = new CSVReader(new InputStreamReader(fis, StandardCharsets.UTF_8));
+                String[] next = reader.readNext();
+                if (next != null && next.length >= 2) {
+                    double lon = Double.parseDouble(next[0]);
+                    double lat = Double.parseDouble(next[1]);
+                    int altitude = 0;
+                    if (next.length > 2) {
+                        altitude = Integer.parseInt(next[2]);
+                    }
+                    loc = new Location("SIM");
+                    loc.setAltitude(altitude);
+                    loc.setLatitude(lat);
+                    loc.setLongitude(lon);
+                    loc.setTime(System.currentTimeMillis());
                 }
-                loc = new Location("SIM");
-                loc.setAltitude(altitude);
-                loc.setLatitude(lat);
-                loc.setLongitude(lon);
-                loc.setTime(System.currentTimeMillis());
+            } catch (IOException e) {
+                //e.printStackTrace();
             }
-        } catch (IOException e) {
-            e.printStackTrace();
+            locSim = loc;
         }
-        return loc;
+        return locSim;
     }
 }

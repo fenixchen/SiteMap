@@ -121,6 +121,7 @@ public class Compass implements SensorEventListener {
      * @param rollSensibility    the minimum difference in degrees with the last roll measure for the {@link CompassListener} to be notified. Set to 0 (default value) to be notified of the slightest change, set to 360 to never be notified.
      */
     public void start(float azimuthSensibility, float pitchSensibility, float rollSensibility) {
+        Log.e(TAG, "SENSIBILITY" + azimuthSensibility + "," + pitchSensibility + "," + rollSensibility);
         mAzimuthSensibility = azimuthSensibility;
         mPitchSensibility = pitchSensibility;
         mRollSensibility = rollSensibility;
