@@ -6,6 +6,7 @@ import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.FragmentTransaction;
@@ -58,13 +59,13 @@ public class MainActivity extends AppCompatActivity {
         public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX,
                                float velocityY) {
             if (e1.getX() - e2.getX() > 100) {
-                //Toast.makeText(MainActivity.this, "从右往左滑动" + (e1.getX() - e2.getX()), Toast.LENGTH_LONG).show();
+                Toast.makeText(MainActivity.this, "从右往左滑动" + (e1.getX() - e2.getX()), Toast.LENGTH_LONG).show();
             } else if (e2.getX() - e1.getX() > 100) {
-                //Toast.makeText(MainActivity.this, "从左往右滑动" + (e2.getX() - e1.getX()), Toast.LENGTH_LONG).show();
+                Toast.makeText(MainActivity.this, "从左往右滑动" + (e2.getX() - e1.getX()), Toast.LENGTH_LONG).show();
             } else if (e1.getY() - e2.getY() > 100) {
-                //Toast.makeText(MainActivity.this, "从下往上滑动" + (e1.getY() - e2.getY()), Toast.LENGTH_LONG).show();
+                Toast.makeText(MainActivity.this, "从下往上滑动" + (e1.getY() - e2.getY()), Toast.LENGTH_LONG).show();
             } else if (e2.getY() - e1.getY() > 100) {
-                //Toast.makeText(MainActivity.this, "从上往下滑动" + (e2.getY() - e1.getY()), Toast.LENGTH_LONG).show();
+                Toast.makeText(MainActivity.this, "从上往下滑动" + (e2.getY() - e1.getY()), Toast.LENGTH_LONG).show();
             }
             return super.onFling(e1, e2, velocityX, velocityY);
         }

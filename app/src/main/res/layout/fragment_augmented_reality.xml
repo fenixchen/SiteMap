@@ -42,6 +42,7 @@
         android:layout_toRightOf="@id/bmapView"
         android:textAlignment="viewStart"
         android:textColor="#FF00FFFF" />
+
     <com.baidu.mapapi.map.MapView
         android:id="@+id/bmapView"
         android:layout_width="200dp"
@@ -49,39 +50,26 @@
         android:layout_alignParentStart="true"
         android:layout_alignParentBottom="true" />
 
-    <LinearLayout
+    <FrameLayout
         android:id="@+id/sceneLayout"
         android:layout_width="300dp"
-        android:layout_height="match_parent"
         android:layout_alignParentEnd="true"
-        android:orientation="vertical">
+        android:layout_height="match_parent">
 
-        <TextView
-            android:id="@+id/selectedPoint"
-            android:layout_width="match_parent"
+        <ProgressBar
+            android:id="@+id/webViewLoading"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginRight="20dp"
-            android:text=""
-            android:textAlignment="textEnd"
-            android:textColor="#FF00FF00" />
+            android:layout_gravity="center"
+            android:alpha="0.5"
+            android:max="100"
+            android:min="0"
+            android:visibility="visible" />
 
-        <FrameLayout
+        <WebView
+            android:id="@+id/webView"
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
-            <ProgressBar
-                android:id="@+id/webViewLoading"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:visibility="visible"
-                android:min="0"
-                android:layout_gravity="center"
-                android:alpha="0.5"
-                android:max="100"/>
-            <WebView
-                android:id="@+id/webView"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:visibility="gone"/>
-        </FrameLayout>
-    </LinearLayout>
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+    </FrameLayout>
 </RelativeLayout>

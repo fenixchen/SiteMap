@@ -18,7 +18,7 @@ import java.util.TimerTask;
 
 public class SplashActivity extends AppCompatActivity {
     private static final int MESSAGE_TIMER = 1;
-    private final int SPLASH_DISPLAY_LENGHT = 3000; //延迟三秒
+    private final int SPLASH_DISPLAY_LENGHT = 2000; //延迟三秒
     private ProgressBar progressBar = null;
     private Timer mTimer;// 定时器
     private int count = 0;

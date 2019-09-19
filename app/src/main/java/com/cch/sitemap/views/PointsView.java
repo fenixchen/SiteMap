@@ -40,6 +40,7 @@ public class PointsView extends View {
     private static final int TEXT_Y_START = 20;
     // Drawing
     private final TextPaint mTextPaint;
+    private final Paint mRectPaint;
     // Points
     private SortedMap<Float, Point> mPoints;
     private Point mUserPoint;
@@ -56,6 +57,7 @@ public class PointsView extends View {
     private float mHorizontalPixelsPerDegree;
     private float mVerticalPixelsPerDegree;
     private String mPointText;
+    private Point mSelectedPoint = null;
 
     public PointsView(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
@@ -67,6 +69,12 @@ public class PointsView extends View {
         mTextPaint.setTextSize(30);
         mTextPaint.setStyle(Paint.Style.STROKE);
         mPointText = context.getString(R.string.points_view_display_information);
+
+        mRectPaint = new Paint();
+        mRectPaint.setColor(Color.YELLOW);
+        mRectPaint.setStrokeWidth(2);
+        mRectPaint.setStyle(Paint.Style.STROKE);
+
     }
 
     /**
@@ -154,10 +162,6 @@ public class PointsView extends View {
                 }
                 // Draw arrow
                 final Drawable drawable = getResources().getDrawable(R.drawable.green_mid, null);
-//                drawable.setBounds(xy[0] - ICON_WIDTH / 2,
-//                        xy[1] - ICON_HEIGHT / 2,
-//                        xy[0] + ICON_WIDTH / 2,
-//                        xy[1] + ICON_HEIGHT / 2);
                 drawable.setBounds(xy[0], xy[1], xy[0] + ICON_WIDTH, xy[1] + ICON_HEIGHT);
                 drawable.draw(canvas);
 
@@ -177,6 +181,12 @@ public class PointsView extends View {
                 mTextLayout.draw(canvas);
                 canvas.translate(xy[0], xy[1]);
                 canvas.restore();
+                if (mSelectedPoint == point) {
+                    canvas.drawRect(xy[0] - 5, xy[1],
+                            xy[0] + ICON_WIDTH + TEXT_X_START + TEXT_WIDTH - 50,
+                            xy[1] + ICON_HEIGHT + TEXT_Y_START,
+                            mRectPaint);
+                }
             }
         }
     }
@@ -264,6 +274,7 @@ public class PointsView extends View {
         }
     }
 
+
     public Point getTouchPoint(float x, float y) {
         if (mUserPoint != null && mPoints != null && !mPoints.isEmpty()) {
             for (SortedMap.Entry<Float, Point> entry : mPoints.entrySet()) {
@@ -284,5 +295,9 @@ public class PointsView extends View {
             }
         }
         return null;
+    }
+
+    public void setSelectedPoint(Point p) {
+        mSelectedPoint = p;
     }
 }

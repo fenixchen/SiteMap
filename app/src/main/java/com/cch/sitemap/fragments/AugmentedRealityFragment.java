@@ -13,12 +13,14 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.provider.Settings;
+import android.text.Layout;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -62,8 +64,6 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
 
 
 /**
@@ -96,9 +96,9 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
     // The maximum age of a location update from the system to be considered as still valid (in order to avoid working with old positions), in milliseconds
     private static final long MAX_AGE_FOR_A_LOCATION = 3 * 60000;
     // The minimum difference with the last orientation values from Compass for the CompassListener to be notified, in degrees
-    private static final float MIN_AZIMUTH_DIFFERENCE_BETWEEN_COMPASS_UPDATES = 3;
-    private static final float MIN_VERTICAL_INCLINATION_DIFFERENCE_BETWEEN_COMPASS_UPDATES = 3;
-    private static final float MIN_HORIZONTAL_INCLINATION_DIFFERENCE_BETWEEN_COMPASS_UPDATES = 3;
+    private static final float MIN_AZIMUTH_DIFFERENCE_BETWEEN_COMPASS_UPDATES = 5;
+    private static final float MIN_VERTICAL_INCLINATION_DIFFERENCE_BETWEEN_COMPASS_UPDATES = 5;
+    private static final float MIN_HORIZONTAL_INCLINATION_DIFFERENCE_BETWEEN_COMPASS_UPDATES = 5;
     private static final int POINTS_IN_RANGE = 500;
     // Check for regular GPS updates
     // Init
@@ -139,8 +139,7 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
     private float mAccuracy;
     private WebView mWebView;
     private ProgressBar mWebViewLoading;
-    private TextView mSelectedPoint;
-    private LinearLayout mSceneLayout;
+    private FrameLayout mSceneLayout;
     private TextView mNearbyPoints;
     private Handler handler = new Handler() {  //此函数是属于MainActivity.java所在线程的函数方法，所以可以直接条调用MainActivity的 所有方法。
         @Override
@@ -183,14 +182,16 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
     public void onTouchEvent(float x, float y) {
         Point p = mPointsView.getTouchPoint(x, y);
         if (p == null) {
+            mPointsView.setSelectedPoint(null);
             mSceneLayout.setVisibility(View.GONE);
         } else {
-            mSelectedPoint.setText(p.getName());
+            mPointsView.setSelectedPoint(p);
             SendGetRequest(p.getLongitude(), p.getLatitude());
             mWebView.setVisibility(View.GONE);
             mWebViewLoading.setVisibility(View.VISIBLE);
             mSceneLayout.setVisibility(View.VISIBLE);
         }
+        mPointsView.invalidate();
     }
 
     private String getSceneId(String json) {
@@ -288,7 +289,6 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
         });
         mWebView.getSettings().setJavaScriptEnabled(true);//设置webView属性，运行JS脚本
         mNearbyPoints = view.findViewById(R.id.nearby_points);
-        mSelectedPoint = view.findViewById(R.id.selectedPoint);
         mSceneLayout = view.findViewById(R.id.sceneLayout);
         mSceneLayout.setVisibility(View.GONE);
         mMapView = view.findViewById(R.id.bmapView);
@@ -464,6 +464,9 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
                 .latitude(cur.latitude)
                 .longitude(cur.longitude).build();
         mMapView.getMap().setMyLocationData(locData);
+        LatLng ll = new LatLng(cur.latitude, cur.longitude);
+        MapStatusUpdate u = MapStatusUpdateFactory.newLatLng(ll);
+        mMapView.getMap().setMapStatus(u);
     }
 
     // LocationListener interface
