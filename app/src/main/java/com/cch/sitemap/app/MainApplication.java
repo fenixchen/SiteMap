@@ -1,14 +1,22 @@
 package com.cch.sitemap.app;
 
 import android.app.Application;
+import android.content.Context;
 
 import com.baidu.mapapi.CoordType;
 import com.baidu.mapapi.SDKInitializer;
 
 public class MainApplication extends Application {
+    private static Context context;
+
+    public static Context getContext() {
+        return context;
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
+        context = getApplicationContext();
         // 在使用 SDK 各组间之前初始化 context 信息，传入 ApplicationContext
         // 默认本地个性化地图初始化方法
         SDKInitializer.initialize(this);
@@ -18,4 +26,5 @@ public class MainApplication extends Application {
         SDKInitializer.setCoordType(CoordType.BD09LL
         );
     }
+
 }

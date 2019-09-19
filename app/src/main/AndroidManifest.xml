@@ -20,14 +20,14 @@
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar">
-        <!--
         <meta-data
             android:name="com.baidu.lbsapi.API_KEY"
             android:value="5Z22KQ7RP9Qkidngax39cWiTs7i6ildf" />
-            -->
+        <!--
         <meta-data
             android:name="com.baidu.lbsapi.API_KEY"
             android:value="AMTlojL2vHc50auaXKe04GWUVGLHGbkA" />
+            -->
         <activity
             android:name=".activity.MainActivity"
             android:screenOrientation="landscape" />

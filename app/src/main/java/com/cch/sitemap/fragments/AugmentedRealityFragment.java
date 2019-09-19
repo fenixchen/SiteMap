@@ -13,15 +13,15 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.provider.Settings;
-import android.text.Layout;
 import android.util.Log;
+import android.view.GestureDetector;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
-import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -72,7 +72,7 @@ import java.util.List;
  * Requires Manifest.permission.CAMERA and Manifest.permission.ACCESS_FINE_LOCATION permissions.
  */
 public class AugmentedRealityFragment extends CameraPreviewFragment
-        implements LocationListener, Compass.CompassListener {
+        implements LocationListener, Compass.CompassListener, GestureDetector.OnGestureListener {
 
     public static final int LEFT_TO_RIGHT = 0;
     public static final int RIGHT_TO_LEFT = 1;
@@ -94,7 +94,7 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
     // The minimum time interval between GPS location updates, in milliseconds
     private static final long MIN_TIME_INTERVAL_BETWEEN_LOCATION_UPDATES = 5000;
     // The maximum age of a location update from the system to be considered as still valid (in order to avoid working with old positions), in milliseconds
-    private static final long MAX_AGE_FOR_A_LOCATION = 3 * 60000;
+    private static final long MAX_AGE_FOR_A_LOCATION = 10 * 1000;
     // The minimum difference with the last orientation values from Compass for the CompassListener to be notified, in degrees
     private static final float MIN_AZIMUTH_DIFFERENCE_BETWEEN_COMPASS_UPDATES = 5;
     private static final float MIN_VERTICAL_INCLINATION_DIFFERENCE_BETWEEN_COMPASS_UPDATES = 5;
@@ -152,9 +152,6 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
         }
     };
 
-    public void gesture(int type) {
-
-    }
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -256,6 +253,9 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
         return inflater.inflate(R.layout.fragment_augmented_reality, container, false);
     }
 
+    private GestureDetector gd;
+
+
     @Override
     public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
@@ -288,6 +288,42 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
             }
         });
         mWebView.getSettings().setJavaScriptEnabled(true);//设置webView属性，运行JS脚本
+        gd = new GestureDetector(this);
+
+        gd.setOnDoubleTapListener(new GestureDetector.OnDoubleTapListener() {
+            @Override
+            public boolean onSingleTapConfirmed(MotionEvent e) {
+                return false;
+            }
+
+            @Override
+            public boolean onDoubleTap(MotionEvent e) {
+                /*
+                if (mSceneLayout.getLayoutParams().width == RelativeLayout.LayoutParams.MATCH_PARENT) {
+                    mSceneLayout.setLayoutParams(new RelativeLayout.LayoutParams(300,
+                            RelativeLayout.LayoutParams.MATCH_PARENT));
+                } else {
+                    mSceneLayout.setLayoutParams(new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT,
+                            RelativeLayout.LayoutParams.MATCH_PARENT));
+                }
+                 */
+                return true;
+            }
+
+            @Override
+            public boolean onDoubleTapEvent(MotionEvent e) {
+                return false;
+            }
+        });
+
+        mWebView.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                return gd.onTouchEvent(event);
+            }
+        });
+
+
         mNearbyPoints = view.findViewById(R.id.nearby_points);
         mSceneLayout = view.findViewById(R.id.sceneLayout);
         mSceneLayout.setVisibility(View.GONE);
@@ -514,36 +550,37 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
     // Should be called whenever GPS status has changed
     @SuppressLint("MissingPermission")
     private void updateGpsStatus() {
-        if (isAdded()) {
-            if (!mLocationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                Location sim = PointService.getInstance().readSimGPS();
-                if (sim != null) {
-                    mLastGpsLocation = sim;
-                    mGpsStatusTextView.setText(String.format("SIM GPS:%.7f, %.7f", mLastGpsLocation.getLongitude(), mLastGpsLocation.getLatitude()));
-                } else {
-                    mLastGpsLocation = mLocationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-                    if (mLastGpsLocation != null) {
-                        mGpsStatusTextView.setText(String.format("基站定位GPS:%.7f, %.7f", mLastGpsLocation.getLongitude(), mLastGpsLocation.getLatitude()));
-                    } else {
-                        mGpsStatusTextView.setText("没有基站定位信息");
-                    }
-                }
-                //mGpsStatusTextView.setText(getString(R.string.gps_disabled));
-                //mPointsView.setPoints(null, null);
-                //mLastGpsLocation.setTime(System.currentTimeMillis());
-                //onLocationChanged(mLastGpsLocation);
-                //showEnableGpsAlertDialog();
+        if (!isAdded()) {
+            return;
+        }
+        if (!mLocationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+            Location sim = PointService.getInstance().readSimGPS();
+            if (sim != null) {
+                mLastGpsLocation = sim;
+                mGpsStatusTextView.setText(String.format("SIM GPS:%.7f, %.7f", mLastGpsLocation.getLongitude(), mLastGpsLocation.getLatitude()));
             } else {
-                if (BuildConfig.DEBUG) Log.d(TAG, "GPS is enabled");
-                dismissEnableGpsAlertDialog();
-                if (mLastGpsLocation != null && mLastGpsLocation.getTime() >= System.currentTimeMillis() - MAX_AGE_FOR_A_LOCATION) {
-                    if (BuildConfig.DEBUG) Log.d(TAG, "GPS located");
-                    mGpsStatusTextView.setText(String.format(getString(R.string.gps_updated_seconds_ago), (System.currentTimeMillis() - mLastGpsLocation.getTime()) / 1000));
+                mLastGpsLocation = mLocationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+                if (mLastGpsLocation != null) {
+                    mGpsStatusTextView.setText(String.format("基站定位GPS:%.7f, %.7f", mLastGpsLocation.getLongitude(), mLastGpsLocation.getLatitude()));
                 } else {
-                    if (BuildConfig.DEBUG) Log.d(TAG, "GPS waiting for location");
-                    mGpsStatusTextView.setText(getString(R.string.gps_waiting_for_location));
-                    mPointsView.setPoints(null, null);
+                    mGpsStatusTextView.setText("没有基站定位信息");
                 }
+            }
+            //mGpsStatusTextView.setText(getString(R.string.gps_disabled));
+            //mPointsView.setPoints(null, null);
+            //mLastGpsLocation.setTime(System.currentTimeMillis());
+            //onLocationChanged(mLastGpsLocation);
+            //showEnableGpsAlertDialog();
+        } else {
+            if (BuildConfig.DEBUG) Log.d(TAG, "GPS is enabled");
+            //dismissEnableGpsAlertDialog();
+            if (mLastGpsLocation != null && mLastGpsLocation.getTime() >= System.currentTimeMillis() - MAX_AGE_FOR_A_LOCATION) {
+                if (BuildConfig.DEBUG) Log.d(TAG, "GPS located");
+                mGpsStatusTextView.setText(String.format(getString(R.string.gps_updated_seconds_ago), (System.currentTimeMillis() - mLastGpsLocation.getTime()) / 1000));
+            } else {
+                if (BuildConfig.DEBUG) Log.d(TAG, "GPS waiting for location");
+                mGpsStatusTextView.setText(getString(R.string.gps_waiting_for_location));
+                mPointsView.setPoints(null, null);
             }
         }
     }
@@ -565,5 +602,35 @@ public class AugmentedRealityFragment extends CameraPreviewFragment
         if (getFragmentManager() != null && isAdded() && getFragmentManager().findFragmentByTag(TAG_ALERT_DIALOG_ENABLE_GPS) != null) {
             ((AlertDialogFragment) getFragmentManager().findFragmentByTag(TAG_ALERT_DIALOG_ENABLE_GPS)).dismissAllowingStateLoss();
         }
+    }
+
+    @Override
+    public boolean onDown(MotionEvent e) {
+        return false;
+    }
+
+    @Override
+    public void onShowPress(MotionEvent e) {
+
+    }
+
+    @Override
+    public boolean onSingleTapUp(MotionEvent e) {
+        return false;
+    }
+
+    @Override
+    public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+        return false;
+    }
+
+    @Override
+    public void onLongPress(MotionEvent e) {
+
+    }
+
+    @Override
+    public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+        return false;
     }
 }

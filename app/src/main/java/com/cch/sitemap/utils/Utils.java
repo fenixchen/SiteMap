@@ -3,7 +3,6 @@ package com.cch.sitemap.utils;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Build;
-import android.util.Log;
 
 import androidx.core.app.ActivityCompat;
 
@@ -36,8 +35,8 @@ public class Utils {
         LatLng ll = new LatLng(lat, lon);
         converter.coord(ll);
         LatLng llDest = converter.convert();
-        Log.w(TAG, String.format("Convert %.7f,%.7f to %.7f,%.7f",
-                lat, lon, llDest.latitude, llDest.longitude));
+        //Log.w(TAG, String.format("Convert %.7f,%.7f to %.7f,%.7f",
+        //       lat, lon, llDest.latitude, llDest.longitude));
         return llDest;
     }
 }

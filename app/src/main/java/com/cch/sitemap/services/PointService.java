@@ -1,13 +1,18 @@
 package com.cch.sitemap.services;
 
+import android.content.Context;
 import android.location.Location;
 import android.os.Environment;
 import android.util.Log;
 
+import com.cch.sitemap.app.MainApplication;
 import com.cch.sitemap.objects.Point;
 
+import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -26,14 +31,22 @@ public class PointService {
     // Constants
     // The Earth mean radius in meters
     private static final double EARTH_RADIUS = 6371000;
+
+    public static final String SITE_FOLDER = "/ARMap/";
+
     // Tag
     private static final String TAG = PointService.class.getSimpleName();
     // Singleton pattern
     private static PointService sInstance;
 
     private List<Point> mPointsAll;
+    public static final String SITE_FILE = "基站.csv";
+    public static final String SIM_GPS = "SimGPS.txt";
+    //默认站点高度
+    private static final int DEFAULT_ALTITUDE = 25;
 
     private PointService() {
+        checkSiteCsv();
         mPointsAll = readCsvPoints();
     }
     /**
@@ -48,11 +61,61 @@ public class PointService {
         return sInstance;
     }
 
+    private void copyFilesFassets(Context context, String oldPath, String newPath) {
+        try {
+            String[] fileNames = context.getAssets().list(oldPath);//获取assets目录下的所有文件及目录名
+            if (fileNames.length > 0) {//如果是目录
+                File file = new File(newPath);
+                file.mkdirs();//如果文件夹不存在，则递归
+                for (String fileName : fileNames) {
+                    copyFilesFassets(context, oldPath + "/" + fileName, newPath + "/" + fileName);
+                }
+            } else {//如果是文件
+                InputStream is = context.getAssets().open(oldPath);
+                FileOutputStream fos = new FileOutputStream(new File(newPath));
+                byte[] buffer = new byte[1024];
+                int byteCount = 0;
+                while ((byteCount = is.read(buffer)) != -1) {//循环从输入流读取 buffer字节
+                    fos.write(buffer, 0, byteCount);//将读取的输入流写入到输出流
+                }
+                fos.flush();//刷新缓冲区
+                is.close();
+                fos.close();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 如果不存在SDCARD的CSV文件, 则从asserts拷贝一个
+     */
+    private void checkSiteCsv() {
+        String extFilePath = Environment.getExternalStorageDirectory() + PointService.SITE_FOLDER;
+        String markerPath = extFilePath + PointService.SITE_FILE;
+        File folder = new File(extFilePath);
+        if (!folder.exists()) {
+            folder.mkdirs();
+        }
+        File marker = new File(markerPath);
+        if (!marker.exists()) {
+            copyFilesFassets(MainApplication.getContext(), PointService.SITE_FILE, markerPath);
+
+            String simPath = extFilePath + PointService.SIM_GPS + ".bak";
+            copyFilesFassets(MainApplication.getContext(), PointService.SIM_GPS, simPath);
+        }
+    }
+
+    /**
+     * 读取外置存储的CSV文件
+     *
+     * @return
+     */
     private List<Point> readCsvPoints() {
         List<Point> points = new ArrayList<>();
-        String extFilePath = Environment.getExternalStorageDirectory() + "/ARMap/";
+        String extFilePath = Environment.getExternalStorageDirectory() + SITE_FOLDER;
+        String markerPath = extFilePath + SITE_FILE;
         try {
-            String markerPath = extFilePath + "基站.csv";
             Log.w(TAG, "markerPath:" + markerPath);
             FileInputStream fis = new FileInputStream(markerPath);
             CSVReader reader = new CSVReader(new InputStreamReader(fis, StandardCharsets.UTF_8));
@@ -61,15 +124,23 @@ public class PointService {
                 if (next == null || next.length < 3) {
                     break;
                 }
-                double latitude = Double.parseDouble(next[1]);
-                double longitude = Double.parseDouble(next[0]);
-                String name = next[2];
-                String desc = "";
-                if (next.length > 3) {
-                    desc = next[3];
+                try {
+                    int altitude = DEFAULT_ALTITUDE;
+                    double latitude = Double.parseDouble(next[1]);
+                    double longitude = Double.parseDouble(next[0]);
+                    String name = next[2];
+                    if (next.length > 3) {
+                        altitude = Integer.parseInt(next[3]);
+                    }
+                    String desc = "";
+                    if (next.length > 4) {
+                        desc = next[4];
+                    }
+                    Point p = new Point(name, desc, latitude, longitude, altitude);
+                    points.add(p);
+                } catch (NumberFormatException ne) {
+                    ne.printStackTrace();
                 }
-                Point p = new Point(name, desc, latitude, longitude, 0);
-                points.add(p);
             }
         } catch (IOException e) {
             e.printStackTrace();
